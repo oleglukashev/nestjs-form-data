@@ -15,6 +15,45 @@ import { GLOBAL_CONFIG_INJECT_TOKEN } from '../config/global-config-inject-token
 import { checkConfig } from '../helpers/check-config';
 import { is } from 'type-is';
 
+function convertFormDataToJson(formData) {
+  const jsonResult = {};
+
+  for (const key in formData) {
+    if (formData.hasOwnProperty(key)) {
+      const value = formData[key];
+
+      if (value === 'undefined') {
+        jsonResult[key] = undefined;
+        continue;
+      }
+
+      if (value === 'null') {
+        jsonResult[key] = null;
+        continue;
+      }
+
+      // Попытка преобразования в число
+      if (!isNaN(value)) {
+        jsonResult[key] = Number(value);
+        continue;
+      }
+      // Попытка разобрать как JSON
+      else if (typeof value === 'object') {
+        try {
+          jsonResult[key] = JSON.parse(value);
+        } catch (e) {
+          // Если не JSON, оставляем как строку
+          jsonResult[key] = value;
+        }
+      } else if (value.toLowerCase() === 'true' || value.toLowerCase() === 'false') {
+        jsonResult[key] = value.toLowerCase() === 'true';
+      }
+    }
+  }
+
+  return jsonResult;
+}
+
 @Injectable()
 export class FormDataInterceptor implements NestInterceptor {
   reflector: Reflector = new Reflector();
@@ -52,7 +91,7 @@ export class FormDataInterceptor implements NestInterceptor {
 
     return from(formReader.handle()).pipe(
       mergeMap((formReaderResult: any) => {
-        httpRequest.body = formReaderResult;
+        httpRequest.body = convertFormDataToJson(formReaderResult);
 
         return next.handle();
       }),
